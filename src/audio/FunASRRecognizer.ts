@@ -22,15 +22,15 @@ export class FunASRRecognizer {
   private statusHandler: StatusHandler | null = null;
   private recordingTimeout: number | null = null;
   private lastRecognitionTime = 0;
-  private readonly FUNASR_API_URL = 'http://localhost:8000/v1/audio/transcriptions';
+  private readonly FUNASR_API_URL = 'http://localhost:10095/v1/audio/transcriptions';
   private readonly MIN_RECOGNITION_INTERVAL = 800; // 最小识别间隔（毫秒）
 
   // 动物关键词映射
   private readonly ANIMAL_KEYWORDS: Record<AnimalType, string[]> = {
-    rooster: ['鸡', '公鸡', '咯咯', '喔喔', 'rooster', 'cock'],
-    monkey: ['猴', '猴子', '吱吱', '猴儿', 'monkey'],
-    dog: ['狗', '汪汪', '汪', '狗狗', 'dog', 'woof'],
-    duck: ['鸭', '鸭子', '嘎嘎', '嘎', '鸭鸭', 'duck', 'quack'],
+    rooster: ['鸡', '公鸡'],
+    monkey: ['猴', '猴子'],
+    dog: ['狗', '狗狗'],
+    duck: ['鸭', '鸭子'],
   };
 
   isRunning(): boolean {

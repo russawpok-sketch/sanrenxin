@@ -27,19 +27,19 @@ export const ANIMAL_HINTS: Record<AnimalType, string> = {
 export const VOICE_COMMANDS: Record<AnimalType, { primary: string; aliases: string[] }> = {
   rooster: {
     primary: '鸡',
-    aliases: ['鸡', '公鸡', '变公鸡', '喔喔喔', '喔喔', '鸡鸡鸡'],
+    aliases: ['鸡', '公鸡'],
   },
   monkey: {
     primary: '猴',
-    aliases: ['猴', '猴子', '变猴子', '哦哦哦', '哦哦', '欧欧欧'],
+    aliases: ['猴', '猴子'],
   },
   dog: {
     primary: '狗',
-    aliases: ['狗', '狗狗', '变狗狗', '小狗', '汪汪', '汪汪汪'],
+    aliases: ['狗', '狗狗'],
   },
   duck: {
     primary: '鸭',
-    aliases: ['鸭', '鸭子', '变鸭子', '嘎嘎嘎', '嘎嘎', '小鸭子'],
+    aliases: ['鸭', '鸭子'],
   },
 };
 

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FunASR 测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f8e9;
+            border-left: 4px solid #8bc34a;
+            border-radius: 4px;
+        }
+        .error {
+            margin-top: 20px;
+            padding: 15px;
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            border-radius: 4px;
+        }
+        .recording {
+            background: #ff5722 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 FunASR 识别测试</h1>
+        <p>点击"开始录音"按钮，然后说"公鸡"、"猴子"、"狗"或"鸭子"</p>
+        
+        <button id="startBtn">开始录音 (1.5秒)</button>
+        <button id="checkBtn">检查服务器状态</button>
+        
+        <div id="status" class="status" style="display:none;"></div>
+        <div id="result" class="result" style="display:none;"></div>
+        <div id="error" class="error" style="display:none;"></div>
+    </div>
+
+    <script>
+        const FUNASR_API_URL = 'http://localhost:10095/v1/audio/transcriptions';
+        const ANIMAL_KEYWORDS = {
+            rooster: ['鸡', '公鸡'],
+            monkey: ['猴', '猴子'],
+            dog: ['狗', '狗狗'],
+            duck: ['鸭', '鸭子'],
+        };
+
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        const startBtn = document.getElementById('startBtn');
+        const checkBtn = document.getElementById('checkBtn');
+        const statusDiv = document.getElementById('status');
+        const resultDiv = document.getElementById('result');
+        const errorDiv = document.getElementById('error');
+
+        function showStatus(message) {
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+            resultDiv.style.display = 'none';
+            errorDiv.style.display = 'none';
+        }
+
+        function showResult(message) {
+            resultDiv.innerHTML = message;
+            resultDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+        }
+
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            resultDiv.style.display = 'none';
+        }
+
+        async function checkServer() {
+            showStatus('正在检查 FunASR 服务器...');
+            try {
+                const response = await fetch('http://localhost:10095/health');
+                const data = await response.json();
+                showResult(`✅ 服务器状态: ${data.status}<br>设备: ${data.device}<br>已加载模型: ${data.models_loaded.join(', ')}`);
+            } catch (error) {
+                showError('❌ FunASR 服务器未运行或无法访问');
+            }
+        }
+
+        async function startRecording() {
+            try {
+                showStatus('正在请求麦克风权限...');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 16000,
+                    }
+                });
+
+                showStatus('✅ 麦克风已开启，开始录音 1.5 秒...');
+                startBtn.textContent = '录音中...';
+                startBtn.classList.add('recording');
+                startBtn.disabled = true;
+
+                audioChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    showStatus('录音完成，正在发送到 FunASR 服务器...');
+                    await processRecording();
+                    stream.getTracks().forEach(track => track.stop());
+                    startBtn.textContent = '开始录音 (1.5秒)';
+                    startBtn.classList.remove('recording');
+                    startBtn.disabled = false;
+                };
+
+                mediaRecorder.start();
+                setTimeout(() => {
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                    }
+                }, 1500);
+
+            } catch (error) {
+                showError('❌ 无法访问麦克风: ' + error.message);
+                startBtn.disabled = false;
+            }
+        }
+
+        async function processRecording() {
+            if (audioChunks.length === 0) {
+                showError('❌ 没有录制到音频数据');
+                return;
+            }
+
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            console.log('音频大小:', audioBlob.size, 'bytes');
+
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'audio.webm');
+            formData.append('model', 'sensevoice');
+            formData.append('response_format', 'json');
+
+            try {
+                const response = await fetch(FUNASR_API_URL, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('FunASR 响应:', data);
+
+                const text = data.text || '';
+                const match = matchAnimalKeyword(text);
+
+                if (match) {
+                    showResult(`
+                        <strong>✅ 识别成功！</strong><br>
+                        原始文本: "${text}"<br>
+                        匹配动物: <strong>${match.animal}</strong><br>
+                        置信度: ${(match.confidence * 100).toFixed(0)}%
+                    `);
+                } else {
+                    showResult(`
+                        <strong>⚠️ 识别到文字但未匹配动物</strong><br>
+                        原始文本: "${text}"<br>
+                        请说: 公鸡、猴子、狗、鸭子
+                    `);
+                }
+
+            } catch (error) {
+                showError('❌ FunASR 识别失败: ' + error.message);
+                console.error('详细错误:', error);
+            }
+        }
+
+        function matchAnimalKeyword(text) {
+            if (!text) return null;
+
+            const normalized = text.toLowerCase().replace(/[\s,.!?;:'"`~\-_/\\|()[\]{}，。！？；：、]/g, '');
+            console.log('标准化文本:', normalized);
+
+            for (const [animal, keywords] of Object.entries(ANIMAL_KEYWORDS)) {
+                for (const keyword of keywords) {
+                    if (normalized.includes(keyword.toLowerCase())) {
+                        return {
+                            animal,
+                            confidence: keyword.length >= 2 ? 0.92 : 0.85
+                        };
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        startBtn.addEventListener('click', startRecording);
+        checkBtn.addEventListener('click', checkServer);
+
+        // 页面加载时自动检查服务器
+        checkServer();
+    </script>
+</body>
+</html>

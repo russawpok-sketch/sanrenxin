@@ -22,7 +22,7 @@ export class FunASRRecognizer {
   private statusHandler: StatusHandler | null = null;
   private recordingTimeout: number | null = null;
   private lastRecognitionTime = 0;
-  private readonly FUNASR_API_URL = 'http://localhost:10095/v1/audio/transcriptions';
+  private readonly FUNASR_API_URL = 'http://localhost:10096/v1/audio/transcriptions';
   private readonly MIN_RECOGNITION_INTERVAL = 800; // 最小识别间隔（毫秒）
 
   // 动物关键词映射
@@ -109,7 +109,7 @@ export class FunASRRecognizer {
 
   private async checkFunASRServer(): Promise<void> {
     try {
-      const response = await fetch(this.FUNASR_API_URL.replace('/v1/audio/transcriptions', '/health'), {
+      const response = await fetch('http://localhost:10096/health', {
         method: 'GET',
         signal: AbortSignal.timeout(3000),
       });
